@@ -1,6 +1,7 @@
 #SCI 2000 final project
 #Last edited 10.03.2021
 library(tidyverse)
+library(dslabs)
 
 #file names were not informative from, so here are the original files from world bank renamed
 sci_articles_wb <- read_csv("./Data/1a01e7be-410e-4ebc-9fbd-c00fba8894e6_Data.csv")
@@ -356,3 +357,12 @@ wb_null_included_00 = merge(sci_articles_wb_00,pop_per_country_wb_00,by = "Count
    merge(tax_revenue_wb_18,by = "Country Name")
  
  wb_18 = na.omit(wb_null_included_18)
+ 
+wb_null_included_18 %>%
+  top_n(n = 10) %>%
+  ggplot(aes(`Country Name`, 
+             `Scientific and technical journal articles`)) +
+  geom_bar(stat = "identity") +
+  coord_flip() + # For horizontal bars
+  theme(axis.text.y = element_text(size = 6)) +
+  xlab("")

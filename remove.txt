@@ -1,0 +1,44 @@
+country
+Afghanistan
+Albania
+Armenia
+Australia
+Azerbaijan
+Bangladesh
+Benin
+Belarus
+Bolivia
+Burkina Faso
+Cameroon
+Central African Republic
+Cuba
+Dominican Republic
+Equatorial Guinea
+Gabon
+Ghana
+Guinea
+Guinea-Bissau
+Israel
+Jamaica
+Kenya
+Lebanon
+Liberia
+Libya
+Malawi
+Mauritania
+Morocco
+Mongolia
+Nepal
+Nicaragua
+Niger
+Nigeria
+Peru
+Saudi Arabia
+Sierra Leone
+Somalia
+Sudan
+Tajikistan
+Timor-Leste
+Turkmenistan
+Zambia
+Zimbabwe	
