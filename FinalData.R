@@ -20,7 +20,6 @@ library(WDI)
 library(tidyverse)
 library(dplyr)
 library(readxl)
-library(zoo)
 
 
 #--------------------------------------------
@@ -40,43 +39,69 @@ RnD_expenditure = WDI(indicator='GB.XPD.RSDV.GD.ZS', start=2012, end=2018)
 #Scientific and technical journal articles from 2012 to 2018
 Sci_and_tech_journals = WDI(indicator = 'IP.JRN.ARTC.SC', start=2012, end=2018)
 
-#government expenditure on education (% of GDP) from 2012 to 2018
-Gov_expenditure_edu = WDI(indicator = 'SE.XPD.TOTL.GD.ZS', start=2012, end=2018)
-
 #researchers per million from 2012 to 2018
 researchers_million = WDI(indicator = 'SP.POP.SCIE.RD.P6', start =2012, end =2018)
 
 #Citations per country / add the year column to the data
-Citations2012 <- read_excel("scimagojr country rank 2012.xlsx")
+Citations2012 <- read_excel("./Data/scimagojr country rank 2012.xlsx")
 Citations2012$year = 2012
 
-Citations2013 <- read_excel("scimagojr country rank 2013.xlsx")
+Citations2013 <- read_excel("./Data/scimagojr country rank 2013.xlsx")
 Citations2013$year = 2013
 
-Citations2014 <- read_excel("scimagojr country rank 2014.xlsx")
+Citations2014 <- read_excel("./Data/scimagojr country rank 2014.xlsx")
 Citations2014$year = 2014
 
-Citations2015 <- read_excel("scimagojr country rank 2015.xlsx")
+Citations2015 <- read_excel("./Data/scimagojr country rank 2015.xlsx")
 Citations2015$year = 2015
 
-Citations2016 <- read_excel("scimagojr country rank 2016.xlsx")
+Citations2016 <- read_excel("./Data/scimagojr country rank 2016.xlsx")
 Citations2016$year = 2016
 
-Citations2017 <- read_excel("scimagojr country rank 2017.xlsx")
+Citations2017 <- read_excel("./Data/scimagojr country rank 2017.xlsx")
 Citations2017$year = 2017
 
-Citations2018 <- read_excel("scimagojr country rank 2018.xlsx")
+Citations2018 <- read_excel("./Data/scimagojr country rank 2018.xlsx")
 Citations2018$year = 2018
 
-#now bind all the Citations into 1 data set
+#Education index per country / add the year column to the data, change col names
+
+EducationIndex2012 <- read_excel("./Data/EducationIndex2012.xlsx")
+EducationIndex2012$year = 2012
+
+EducationIndex2013 <- read_excel("./Data/EducationIndex2013.xlsx")
+EducationIndex2013$year = 2013
+
+EducationIndex2014 <- read_excel("./Data/EducationIndex2014.xlsx")
+EducationIndex2014$year = 2014
+
+EducationIndex2015 <- read_excel("./Data/EducationIndex2015.xlsx")
+EducationIndex2015$year = 2015
+
+EducationIndex2016 <- read_excel("./Data/EducationIndex2016.xlsx")
+EducationIndex2016$year = 2016
+
+EducationIndex2017 <- read_excel("./Data/EducationIndex2017.xlsx")
+EducationIndex2017$year = 2017
+
+EducationIndex2018 <- read_excel("./Data/EducationIndex2018.xlsx")
+EducationIndex2018$year = 2018
+names(EducationIndex2018)[names(EducationIndex2018) == 'education_vaue'] <- 'education_value'
+
+#now bind all the Citations and EducationIndex into 1 data set
 citations <- rbind(Citations2012,Citations2013,Citations2014,Citations2015,Citations2016,
                    Citations2017,Citations2018)
 
-#now delete some columns from the Citations and rename some columns
+eduindex <- rbind(EducationIndex2012,EducationIndex2013,EducationIndex2014,
+                  EducationIndex2015,EducationIndex2016,EducationIndex2017,
+                  EducationIndex2018)
+
+#now delete some columns from the Citations & eduindex and rename some columns
 drop <- c('Rank','Region')
 citations = citations[!(names(citations) %in% drop)]
 names(citations)[1] <- 'country'
 
+names(eduindex)[names(eduindex) == 'Country'] <- 'country'
 
 #--------------------------------------------
 #         Create the Super data set
@@ -86,7 +111,6 @@ names(citations)[1] <- 'country'
 FinalData <- inner_join(population, gdp, by=c('country','year','iso2c'))
 FinalData <- inner_join(FinalData, RnD_expenditure, by=c('country','year','iso2c'))
 FinalData <- inner_join(FinalData, Sci_and_tech_journals, by=c('country','year','iso2c'))
-FinalData <- inner_join(FinalData, Gov_expenditure_edu, by=c('country','year','iso2c'))
 FinalData <- inner_join(FinalData, researchers_million, by=c('country','year','iso2c'))
 
 #rename some columns then add the citation data
@@ -95,12 +119,11 @@ names(FinalData)[3] <- 'population'
 names(FinalData)[5] <- 'gdp'
 names(FinalData)[6] <- 'RnD_Expenditure'
 names(FinalData)[7] <- 'sci_tech_articles'
-names(FinalData)[8] <- 'education_expenditure'
-names(FinalData)[9] <- 'researchers_per_million'
-names(FinalData)[10] <- 'literacy_rate'
+names(FinalData)[8] <- 'researchers_per_million'
 
 #now add the citations data
 FinalData <- inner_join(FinalData, citations, by=c('country','year'))
+FinalData <- inner_join(FinalData, eduindex, by=c('country','year'))
 
 
 #-------------------------------------------------------
@@ -128,8 +151,9 @@ FinalData$researchers_per_million <- ifelse(is.na(FinalData$researchers_per_mill
                                 FinalData$mean_rpm, FinalData$researchers_per_million)
 
 #removing columns we don't need
-FinalData <- FinalData[-c(1, 16, 17)]
+FinalData <- FinalData[-c(1, 14, 16:17)]
 
+#adding our scientific output functions
 
 #-------------------------------------------------------
 # Delete all the 'extra' data sets that we don't need
@@ -144,9 +168,15 @@ rm(Citations2016)
 rm(Citations2017)
 rm(Citations2018)
 rm(citations)
+rm(EducationIndex2012)
+rm(EducationIndex2013)
+rm(EducationIndex2014)
+rm(EducationIndex2015)
+rm(EducationIndex2016)
+rm(EducationIndex2017)
+rm(EducationIndex2018)
+rm(eduindex)
 rm(gdp)
-rm(Gov_expenditure_edu)
-rm(literacyRate)
 rm(drop)
 rm(population)
 rm(RnD_expenditure)
