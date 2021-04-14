@@ -153,7 +153,11 @@ FinalData$researchers_per_million <- ifelse(is.na(FinalData$researchers_per_mill
 #removing columns we don't need
 FinalData <- FinalData[-c(1, 14, 16:17)]
 
-#adding our scientific output functions
+
+#adding our scientific output function
+
+FinalData <- FinalData %>%
+  mutate(sci_out =  (Documents*1000000)/Population)
 
 #-------------------------------------------------------
 # Delete all the 'extra' data sets that we don't need
@@ -209,5 +213,3 @@ FinalData2017 <- FinalData %>%
 
 FinalData2018 <- FinalData %>%
   filter(year == 2018)
-
-
