@@ -1,3 +1,4 @@
+# Code written by Zeeshan Javed, Nichola Millman, and Omar Hassan
 #--------------------------------------------
 #             READ ME
 #--------------------------------------------
@@ -20,6 +21,9 @@ library(WDI)
 library(tidyverse)
 library(dplyr)
 library(readxl)
+library(dslabs)
+library(broom)
+library(cowplot)
 
 
 #--------------------------------------------
@@ -125,6 +129,8 @@ names(FinalData)[8] <- 'researchers_per_million'
 FinalData <- inner_join(FinalData, citations, by=c('country','year'))
 FinalData <- inner_join(FinalData, eduindex, by=c('country','year'))
 
+names(FinalData)[13] <- 'cit_per_doc'
+names(FinalData)[15] <- 'education_index'
 
 #-------------------------------------------------------
 #             Clean the Super data set
@@ -150,14 +156,26 @@ FinalData$RnD_Expenditure <- ifelse(is.na(FinalData$RnD_Expenditure),
 FinalData$researchers_per_million <- ifelse(is.na(FinalData$researchers_per_million), 
                                 FinalData$mean_rpm, FinalData$researchers_per_million)
 
-#removing columns we don't need
+#removing columns we don't need & formatting
 FinalData <- FinalData[-c(1, 14, 16:17)]
-
+FinalData$education_index <- as.double(FinalData$education_index)
 
 #adding our scientific output function
 
 FinalData <- FinalData %>%
-  mutate(sci_out =  (Documents*1000000)/Population)
+  mutate(doc_per_mil =  (Documents*1000000)/population)
+
+#add gdp_per_capita to the Final data
+FinalData = FinalData%>%
+  mutate(gdp_per_capita =  (gdp/population))
+
+#add RnD expenditure dollar amount
+FinalData = FinalData%>%
+  mutate(RnD_dollar_amount =  (RnD_Expenditure/100) * gdp)
+
+#add RnD expenditure per capita to the FinalData
+FinalData = FinalData%>%
+  mutate(RnD_per_capita =  (RnD_dollar_amount/population))
 
 #-------------------------------------------------------
 # Delete all the 'extra' data sets that we don't need
@@ -213,3 +231,355 @@ FinalData2017 <- FinalData %>%
 
 FinalData2018 <- FinalData %>%
   filter(year == 2018)
+
+
+#--------------------------------------------
+#                 analyses
+#--------------------------------------------
+
+#-------------------------------------------------
+#      Scientific Output
+#-------------------------------------------------
+
+#First lets take a look at the relationship between number of documents published per million per country over time
+
+output_over_time = FinalData%>%
+  group_by(year)%>%
+  summarize(sum(Documents),mean(Documents))
+
+#boxplot no jitter
+FinalData$year = factor(FinalData$year)
+ggplot(FinalData,aes(x= year, y = doc_per_mil)) +
+  geom_boxplot( fill = "#9FDFF1") +
+  ylab("Documents per million")
+
+#boxplot with jitter
+FinalData$year = factor(FinalData$year)
+ggplot(FinalData,aes(x= year, y = doc_per_mil)) +
+  geom_boxplot( fill = "#9FDFF1") +
+  geom_jitter(height =0.10,width =0.10) +
+  ylab("documents per million")
+
+#linear model
+fit <- lm(doc_per_mil~year, data = FinalData)
+fit
+confint(fit)
+
+
+#Now, let's look at the relationship between citations and articles published
+
+
+#boxplot not jitter
+FinalData$year = factor(FinalData$year)
+ggplot(FinalData,aes(x= year, y = cit_per_doc)) +
+  geom_boxplot( fill = "#9FDFF1") +
+  ylab("Citations per Document")
+
+#boxplot with jitter
+FinalData$year = factor(FinalData$year)
+ggplot(FinalData, aes(x = year, y = cit_per_doc)) +
+  geom_boxplot(fill = "#9FDFF1") +
+  geom_jitter(height =0.15, width =0.15) +
+  ylab("Citations per document")
+
+#linear model
+fit2 <- lm(cit_per_doc~year, data = FinalData)
+fit2
+confint(fit2)
+
+#Now let's look at output vs population
+
+#point graph over the years
+
+FinalData%>%
+  ggplot()+
+  geom_point(aes(x= population/100000, y = Documents/1000))+
+  xlab("Population")+
+  ggtitle("Population vs Published Documents")+
+  facet_wrap(~year)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+#point graph zoomed in (outliars out of view)
+FinalData2018%>%
+  ggplot()+
+  geom_point(aes(x= population/1000000, y = Documents/100))+
+  coord_cartesian(ylim = c(0,3000))+
+  ggtitle("Population vs Published Documents 2018")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+#linear model and correlation
+cor(FinalData$population,FinalData$Documents,method = "pearson")
+fit3 <- lm(population~Documents, data = FinalData)
+fit3
+confint(fit3)
+
+#Now lets look at the top performers
+
+#first, lets graph citations per document vs documents per million
+FinalData%>%
+  ggplot()+
+  geom_point(aes(x= cit_per_doc, y = doc_per_mil))+
+  xlab("Citations per document")+
+  ylab("Documents per million")+
+  facet_wrap(~year)
+
+cor(FinalData$cit_per_doc,FinalData$doc_per_mil,method = "pearson")
+fit4 <- lm(cit_per_doc~doc_per_mil, data = FinalData)
+fit4
+confint(fit4)
+
+#Now lets look at above average countries
+
+#above mean average docs per mil dataset
+above_avg2012 = FinalData2012%>%
+  filter(doc_per_mil>mean(FinalData2012$doc_per_mil))
+
+above_avg2013 = FinalData2013%>%
+  filter(doc_per_mil>mean(FinalData2013$doc_per_mil))
+
+above_avg2014 = FinalData2014%>%
+  filter(doc_per_mil>mean(FinalData2014$doc_per_mil))
+
+above_avg2015 = FinalData2015%>%
+  filter(doc_per_mil>mean(FinalData2015$doc_per_mil))
+
+above_avg2016 = FinalData2016%>%
+  filter(doc_per_mil>mean(FinalData2016$doc_per_mil))
+
+above_avg2017 = FinalData2017%>%
+  filter(doc_per_mil>mean(FinalData2017$doc_per_mil))
+
+above_avg2018 = FinalData2018%>%
+  filter(doc_per_mil>mean(FinalData2018$doc_per_mil))
+
+above_avg = full_join(above_avg2012,above_avg2013)%>%
+  full_join(above_avg2014)%>%
+  full_join(above_avg2015)%>%
+  full_join(above_avg2016)%>%
+  full_join(above_avg2017)%>%
+  full_join(above_avg2018)
+
+#graph of above average docs per mil vs citations per document
+
+above_avg%>%
+  ggplot()+
+  geom_point(aes(x= cit_per_doc, y = doc_per_mil))+
+  xlab("Citations per document")+
+  ylab("Documents per million")+
+  facet_wrap(~year)
+
+above_avg_cor = above_avg%>%
+  group_by(year)%>%
+  summarize(cor(cit_per_doc,doc_per_mil,method = "pearson"))
+
+#performing a linear regression to see if the above mean average docs_per_mil are increasing over time
+fit4 <- lm(year~doc_per_mil, data = above_avg)
+fit4
+confint(fit4)
+
+#Now, lets consider the top ten countries for docs per million over the years
+#first let's filter the dataset for the top ten each year
+top_performers2012 = FinalData2012%>%
+  filter(doc_per_mil>3000)
+
+top_performers2013 = FinalData2013%>%
+  filter(doc_per_mil>3100)
+
+top_performers2014 = FinalData2014%>%
+  filter(doc_per_mil>3050)
+
+top_performers2015 = FinalData2015%>%
+  filter(doc_per_mil>3104.5)
+
+top_performers2016 = FinalData2016%>%
+  filter(doc_per_mil>3150)
+
+top_performers2017 = FinalData2017%>%
+  filter(doc_per_mil>3200)
+
+top_performers2018 = FinalData2018%>%
+  filter(doc_per_mil>3250)
+
+
+top_performers = full_join(top_performers2012,top_performers2013)%>%
+  full_join(top_performers2014) %>%
+  full_join(top_performers2015) %>%
+  full_join(top_performers2016) %>%
+  full_join(top_performers2017) %>%
+  full_join(top_performers2018)
+
+#now let's do a bar graph of each year
+
+top_performers%>%
+  ggplot(aes(y= doc_per_mil,x= reorder(country,doc_per_mil), fill = country))+
+  geom_bar(stat = "identity",position = "dodge")+
+  ylab("Documents per million")+
+  xlab("")+
+  coord_flip() + 
+  facet_wrap(~year)
+
+#Now lets look at citations per doc of the top ten countries
+
+top_performers %>%
+  ggplot(aes(y= cit_per_doc,x = country)) +
+  geom_bar(stat = "identity",position = "dodge") +
+  ylab("Citations per document") +
+  xlab("") +
+  coord_flip()
+
+
+#-------------------------------------------------
+#      Institutional factors vs scientific output
+#-------------------------------------------------
+
+
+# scatter doc/mil vs researchers/mil
+FinalData %>%
+  ggplot() +
+  geom_point(aes(x= researchers_per_million, y = doc_per_mil)) +
+  xlab("Researchers per million") +
+  ylab("Documents per million") +
+  facet_wrap(~year) +
+  theme_minimal() 
+
+# correlations for doc/mil vs researchers/mil
+temp1 <- cor.test(FinalData2012$researchers_per_million, 
+                  FinalData2012$doc_per_mil, method = 'pearson')
+temp1
+
+temp2 <- cor.test(FinalData2013$researchers_per_million, 
+                  FinalData2013$doc_per_mil, method = 'pearson')
+temp2
+
+temp3 <- cor.test(FinalData2014$researchers_per_million, 
+                  FinalData2014$doc_per_mil, method = 'pearson')
+temp3
+
+temp4 <- cor.test(FinalData2015$researchers_per_million, 
+                  FinalData2015$doc_per_mil, method = 'pearson')
+temp4
+
+temp5 <- cor.test(FinalData2016$researchers_per_million, 
+                  FinalData2016$doc_per_mil, method = 'pearson')
+temp5
+
+temp6 <- cor.test(FinalData2017$researchers_per_million, 
+                  FinalData2017$doc_per_mil, method = 'pearson')
+temp6
+
+temp7 <- cor.test(FinalData2018$researchers_per_million, 
+                  FinalData2018$doc_per_mil, method = 'pearson')
+temp7
+
+# scatter doc/mil vs education index
+FinalData %>%
+  filter(education_index > 0.6) %>%
+  ggplot() +
+  geom_point(aes(x= education_index, y = doc_per_mil)) +
+  xlab("Education Index") +
+  ylab("Documents per million") +
+  facet_wrap(~year) +
+  theme_minimal() 
+
+# correlations for doc/mil vs education index
+FinalData %>%
+  filter(education_index > 0.6) %>%
+  group_by(year)
+
+temp8 <- cor.test(filter(FinalData2012, education_index >0.6)$education_index, 
+                  filter(FinalData2012, education_index >0.6)$doc_per_mil, 
+                  method = 'pearson')
+temp8
+
+temp9 <- cor.test(filter(FinalData2013, education_index >0.6)$education_index, 
+                  filter(FinalData2013, education_index >0.6)$doc_per_mil, 
+                  method = 'pearson')
+temp9
+
+temp10 <- cor.test(filter(FinalData2014, education_index >0.6)$education_index, 
+                   filter(FinalData2014, education_index >0.6)$doc_per_mil, 
+                   method = 'pearson')
+temp10
+
+temp11 <- cor.test(filter(FinalData2015, education_index >0.6)$education_index, 
+                   filter(FinalData2015, education_index >0.6)$doc_per_mil, 
+                   method = 'pearson')
+temp11
+
+temp12 <- cor.test(filter(FinalData2016, education_index >0.6)$education_index, 
+                   filter(FinalData2016, education_index >0.6)$doc_per_mil,
+                   method = 'pearson')
+temp12
+
+temp13 <- cor.test(filter(FinalData2017, education_index >0.6)$education_index, 
+                   filter(FinalData2017, education_index >0.6)$doc_per_mil, 
+                   method = 'pearson')
+temp13
+
+temp14 <- cor.test(filter(FinalData2018, education_index >0.6)$education_index, 
+                   filter(FinalData2018, education_index >0.6)$doc_per_mil, 
+                   method = 'pearson')
+temp14
+#-------------------------------------------------
+#      Economic factors vs scientific output
+#-------------------------------------------------
+
+
+#graph gdp per capita vs documents per million over the years
+FinalData %>%
+  ggplot(aes(x = gdp_per_capita, y= doc_per_mil,group=year, color = factor(year))) +
+  xlab("GDP per capita($)") +
+  ylab("Documents per Million") +
+  geom_line()
+
+#Find the correlation 
+temp15 <- cor.test(FinalData2012$gdp_per_capita, FinalData2012$doc_per_mil, method = 'pearson')
+temp15
+
+temp16 <- cor.test(FinalData2013$gdp_per_capita, FinalData2013$doc_per_mil, method = 'pearson')
+temp16
+
+temp17 <- cor.test(FinalData2014$gdp_per_capita, FinalData2014$doc_per_mil, method = 'pearson')
+temp17
+
+temp18 <- cor.test(FinalData2015$gdp_per_capita, FinalData2015$doc_per_mil, method = 'pearson')
+temp18
+
+temp19 <- cor.test(FinalData2016$gdp_per_capita, FinalData2016$doc_per_mil, method = 'pearson')
+temp19
+
+temp20 <- cor.test(FinalData2017$gdp_per_capita, FinalData2017$doc_per_mil, method = 'pearson')
+temp20
+
+temp21 <- cor.test(FinalData2018$gdp_per_capita, FinalData2018$doc_per_mil, method = 'pearson')
+temp21
+
+#graph RnD expenditure per capita vs documents per million over the years
+FinalData %>%
+  ggplot(aes(x=RnD_per_capita,y=doc_per_mil,group=year, color = factor(year))) +
+  xlab("RnD expenditure per capita($)") +
+  ylab("Documents per Million") +
+  geom_line()
+
+
+#Find the correlation 
+temp22 <- cor.test(FinalData2012$RnD_per_capita, FinalData2012$doc_per_mil, method = 'pearson')
+temp22
+
+temp23 <- cor.test(FinalData2013$RnD_per_capita, FinalData2013$doc_per_mil, method = 'pearson')
+temp23
+
+temp24 <- cor.test(FinalData2014$RnD_per_capita, FinalData2014$doc_per_mil, method = 'pearson')
+temp24
+
+temp25 <- cor.test(FinalData2015$RnD_per_capita, FinalData2015$doc_per_mil, method = 'pearson')
+temp25
+
+temp26 <- cor.test(FinalData2016$RnD_per_capita, FinalData2016$doc_per_mil, method = 'pearson')
+temp26
+
+temp27 <- cor.test(FinalData2017$RnD_per_capita, FinalData2017$doc_per_mil, method = 'pearson')
+temp27
+
+temp28 <- cor.test(FinalData2018$RnD_per_capita, FinalData2018$doc_per_mil, method = 'pearson')
+temp28
